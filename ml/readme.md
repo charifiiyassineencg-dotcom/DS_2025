@@ -1,88 +1,482 @@
+# -*- coding: utf-8 -*-
+"""
+Travail Pratique : Classification de la Qualité des Vins
+Algorithmes des k plus proches voisins (k-NN)
+"""
 
+# Importation des bibliothèques
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.preprocessing import StandardScaler
+import warnings
+warnings.filterwarnings('ignore')
 
-**OBJECTIF DU PROJET**
+# Configuration de l'affichage
+pd.set_option('display.max_columns', None)
+plt.style.use('seaborn-v0_8')
 
-Développer un système complet de Machine Learning pour prédire la qualité des vins blancs portugais à partir de leurs caractéristiques physico-chimiques.
+print("=" * 60)
+print("CLASSIFICATION DE LA QUALITÉ DES VINS - k-NN")
+print("=" * 60)
 
-La classification de qualité des vins consiste à catégoriser les vins en "bon" ou "mauvais" qualité basé sur des mesures scientifiques objectives. Cette approche est cruciale pour l'industrie vinicole avec un contrôle qualité automatisé, la distribution pour la segmentation des produits, la recherche pour comprendre les facteurs influençant la qualité, et les consommateurs pour une assurance qualité objective.
+# =============================================================================
+# 1. CHARGEMENT ET EXPLORATION DES DONNÉES
+# =============================================================================
 
-Cette classification est importante car elle permet l'optimisation de production en identifiant les paramètres critiques, réduit les coûts par la détection précoce des lots défectueux, assure une standardisation cohérente indépendante des dégustateurs, et favorise l'innovation dans le développement de nouveaux crus basé sur des données.
+print("\n" + "=" * 50)
+print("1. CHARGEMENT ET EXPLORATION DES DONNÉES")
+print("=" * 50)
 
-**COMPRÉHENSION DU DATASET**
+# Chargement du dataset
+link = "http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv"
+df = pd.read_csv(link, header="infer", delimiter=";")
 
-Le dataset Wine Quality contient 4 898 vins blancs avec 12 caractéristiques physico-chimiques réparties en trois catégories :
+print("\n✅ Dataset chargé avec succès")
+print(f"Dimensions : {df.shape[0]} échantillons, {df.shape[1]} caractéristiques")
 
-Propriétés Acides : fixed acidity (acide tartrique), volatile acidity (acide acétique), citric acid (acide citrique), residual sugar (sucre résiduel)
+print("\n============= Premiers échantillons =============")
+print(df.head())
 
-Caractéristiques Chimiques : chlorides (chlorures/salinité), free sulfur dioxide (SO2 libre), total sulfur dioxide (SO2 total), sulphates (sulfates), pH (niveau d'acidité), alcohol (teneur en alcool)
+print("\n============= Informations du dataset =============")
+df.info()
 
-Variable Cible : quality (score de qualité 0-10 transformé en binaire : 0=mauvais, 1=bon)
+print("\n============= Qualités des vins (original) =============")
+qualities_count = df['quality'].value_counts().sort_index()
+print(qualities_count)
 
-Les hypothèses scientifiques indiquent que l'acidité volatile influence négativement la qualité, l'alcool et les sulfates améliorent généralement la qualité, et l'équilibre entre acidité et sucre est crucial.
+# Visualisation de la distribution originale
+plt.figure(figsize=(10, 6))
+qualities_count.plot(kind='bar', color='skyblue')
+plt.title('Distribution des Qualités de Vins (Originale)')
+plt.xlabel('Score de Qualité')
+plt.ylabel('Nombre d\'échantillons')
+plt.grid(axis='y', alpha=0.3)
+plt.show()
 
-**ÉTAPES DU PROJET DÉTAILLÉES**
+# =============================================================================
+# 2. PRÉPARATION DES DONNÉES - CLASSIFICATION BINAIRE
+# =============================================================================
 
-Étape 1 : Exploration des Données (EDA)
+print("\n" + "=" * 50)
+print("2. PRÉPARATION DES DONNÉES - CLASSIFICATION BINAIRE")
+print("=" * 50)
 
-Le chargement des données révèle un dataset de 4 898 échantillons avec 12 caractéristiques. L'analyse de la distribution de qualité montre une conversion nécessaire en classification binaire où les vins de qualité inférieure ou égale à 5 sont classés "mauvais" (0) et ceux supérieurs à 5 sont "bons" (1). Cette conversion donne typiquement 66% de vins "mauvais" et 34% de vins "bons", indiquant un dataset modérément déséquilibré.
- 
-============= Qualités des vins (original) =============
-quality
-3      20
-4     163
-5    1457
-6    2198
-7     880
-8     175
-9       5
-Name: count, dtype: int64
+# Conversion en classification binaire
+Y_binary = [0 if val <= 5 else 1 for val in df['quality']]
+df['quality_binary'] = Y_binary
 
+print("\n============= Distribution des classes binaires =============")
+binary_counts = pd.Series(Y_binary).value_counts()
+binary_percentages = pd.Series(Y_binary).value_counts(normalize=True) * 100
+print(binary_counts)
+print(f"\nPourcentages : {binary_percentages[0]:.1f}% mauvaise qualité, {binary_percentages[1]:.1f}% bonne qualité")
 
-Étape 2 : Analyse Statistique
+# Visualisation de la distribution binaire
+plt.figure(figsize=(8, 6))
+colors = ['lightcoral', 'lightgreen']
+binary_counts.plot(kind='bar', color=colors)
+plt.title('Distribution des Vins par Classe de Qualité')
+plt.xlabel('Classe de Qualité (0=Mauvaise, 1=Bonne)')
+plt.ylabel('Nombre d\'échantillons')
+plt.xticks(rotation=0)
+for i, v in enumerate(binary_counts):
+    plt.text(i, v + 50, f'{v}\n({binary_percentages[i]:.1f}%)', 
+             ha='center', va='bottom', fontweight='bold')
+plt.grid(axis='y', alpha=0.3)
+plt.show()
 
-L'analyse via boxplots et matrice de corrélation révèle plusieurs insights importants. On observe une forte corrélation positive entre l'alcool et la qualité, une corrélation entre la densité et le sucre résiduel, et une liaison forte entre le free sulfur dioxide et le total sulfur dioxide. Ces observations guident la sélection des features pour la modélisation.
- 
+# =============================================================================
+# 3. ANALYSE STATISTIQUE ET VISUALISATION
+# =============================================================================
 
-Étape 3 : Préparation des Données
+print("\n" + "=" * 50)
+print("3. ANALYSE STATISTIQUE ET VISUALISATION")
+print("=" * 50)
 
-La division des données suit une approche rigoureuse avec 60% pour l'entraînement, 20% pour la validation et 20% pour le test. La stratification est appliquée pour maintenir la proportion 66%/34% dans tous les splits, évitant ainsi les biais d'échantillonnage et assurant une évaluation réaliste des performances.
+# Préparation des variables
+X = df.drop(["quality", "quality_binary"], axis=1)
+Y = Y_binary
 
-Étape 4 : Implémentation du k-NN
+print("\n---------- Statistiques descriptives ----------")
+print(X.describe())
 
-Le modèle k-NN est d'abord testé avec k=3, montrant un taux d'erreur initial sur l'ensemble de validation. L'optimisation systématique de k sur une plage de 1 à 40 (valeurs impaires) permet d'identifier la valeur optimale via la minimisation de l'erreur de validation. La visualisation des courbes d'erreur d'entraînement et de validation révèle clairement le phénomène de surapprentissage pour les petites valeurs de k.
+# Boxplots
+print("\n📊 Génération des boxplots...")
+plt.figure(figsize=(12, 8))
+sns.boxplot(data=X, orient="v", palette="Set2", width=0.7, notch=True)
+plt.xticks(rotation=45)
+plt.title('Distribution des Caractéristiques Physico-Chimiques des Vins')
+plt.tight_layout()
+plt.show()
 
-Étape 5 : Normalisation des Données
+# Matrice de corrélation
+print("\n📈 Génération de la heatmap de corrélation...")
+plt.figure(figsize=(12, 10))
+correlation_matrix = X.corr()
+mask = np.triu(np.ones_like(correlation_matrix, dtype=bool))
+sns.heatmap(correlation_matrix, mask=mask, annot=True, cmap='coolwarm', 
+            center=0, square=True, fmt='.2f', cbar_kws={"shrink": .8})
+plt.title('Matrice de Corrélation des Caractéristiques des Vins')
+plt.tight_layout()
+plt.show()
 
-La normalisation devient essentielle compte tenu des différentes échelles des features : alcohol (8.0-14.2), residual sugar (0.6-65.8), free sulfur dioxide (2-289). L'utilisation de StandardScaler standardise ces features, rendant les distances euclidiennes plus significatives pour l'algorithme k-NN.
+# =============================================================================
+# 4. DIVISION DES DONNÉES
+# =============================================================================
 
-**RÉSULTATS ET ANALYSE**
+print("\n" + "=" * 50)
+print("4. DIVISION DES DONNÉES")
+print("=" * 50)
 
-La comparaison des performances montre clairement l'impact de la normalisation :
+# Division des données
+X_train_val, X_test, Y_train_val, Y_test = train_test_split(
+    X, Y, shuffle=True, test_size=1/3, random_state=42, stratify=Y
+)
 
-Condition - k optimal - Erreur Validation - Erreur Test
-Sans normalisation - 15 - 0.245 - 0.238
-Avec normalisation - 9 - 0.218 - 0.211
+X_train, X_val, Y_train, Y_val = train_test_split(
+    X_train_val, Y_train_val, shuffle=True, test_size=0.5, 
+    random_state=42, stratify=Y_train_val
+)
 
-L'amélioration de 11% de réduction d'erreur avec normalisation démontre son importance cruciale. L'analyse du surapprentissage révèle que les petites valeurs de k (1-5) montrent un surapprentissage marqué, les valeurs moyennes (7-15) offrent un bon équilibre, tandis que les grandes valeurs (>20) conduisent au sous-apprentissage.
+print(f"✅ Division des données terminée:")
+print(f"   - Ensemble d'entraînement : {X_train.shape}")
+print(f"   - Ensemble de validation : {X_val.shape}")
+print(f"   - Ensemble de test : {X_test.shape}")
 
-**INTERPRÉTATION SCIENTIFIQUE**
+# Vérification des proportions
+print("\n✅ Vérification des proportions:")
+print(f"   - Proportion classe 1 - Train : {np.mean(Y_train):.3f}")
+print(f"   - Proportion classe 1 - Validation : {np.mean(Y_val):.3f}")
+print(f"   - Proportion classe 1 - Test : {np.mean(Y_test):.3f}")
+print(f"   - Proportion classe 1 - Original : {np.mean(Y):.3f}")
 
-L'analyse des facteurs influençant la qualité identifie l'alcool comme corrélé positivement avec la qualité, l'acidité volatile ayant un impact négatif, les sulfates contribuant à la stabilisation, et la densité liée au sucre résiduel influençant l'équilibre.
+# =============================================================================
+# 5. IMPLÉMENTATION DU k-NN SANS NORMALISATION
+# =============================================================================
 
-Les recommandations pour les viticulteurs incluent le contrôle de l'acidité volatile pendant la fermentation, l'optimisation de la teneur en alcool selon le profil souhaité, et la gestion des sulfates pour la conservation sans altérer le goût.
+print("\n" + "=" * 50)
+print("5. k-NN SANS NORMALISATION")
+print("=" * 50)
 
-**AMÉLIORATIONS POSSIBLES**
+# Test initial avec k=3
+print("\n---------- Test initial avec k=3 ----------")
+knn_initial = KNeighborsClassifier(n_neighbors=3)
+knn_initial.fit(X_train, Y_train)
 
-Plusieurs axes d'amélioration peuvent être explorés. Le feature engineering peut créer de nouvelles variables comme le ratio d'acidité, le ratio sucre/alcool, ou l'acidité totale. La gestion du déséquilibre via SMOTE peut améliorer la détection des vins de qualité. L'essai d'autres algorithmes comme Random Forest, SVM ou Regression Logistique permet des comparaisons. L'optimisation des hyperparamètres via GridSearchCV affine davantage les performances.
+Y_val_pred_initial = knn_initial.predict(X_val)
+error_rate_initial = 1 - accuracy_score(Y_val, Y_val_pred_initial)
+accuracy_initial = accuracy_score(Y_val, Y_val_pred_initial)
 
-**APPLICATION INDUSTRIELLE**
+print(f"📊 Résultats avec k=3:")
+print(f"   - Taux d'erreur validation : {error_rate_initial:.4f}")
+print(f"   - Précision validation : {accuracy_initial:.4f}")
 
-Un pipeline de production peut être implémenté pour prédire la qualité d'un vin à partir de ses propriétés chimiques, retournant la classe de qualité, le score de confiance et un score de qualité sur 10. Les utilisations pratiques incluent le contrôle qualité en ligne dans les caves, la classification automatique pour l'étiquetage, l'aide à la décision pour les assemblages, et la recherche et développement de nouveaux cépages.
+# Recherche du k optimal
+print("\n---------- Recherche du k optimal ----------")
+k_vector = np.arange(1, 41, 2)
+print(f"🔍 Valeurs de k testées : {k_vector}")
 
-**COMPÉTENCES ACQUISES**
+error_train = np.empty(len(k_vector))
+error_val = np.empty(len(k_vector))
+accuracy_train = np.empty(len(k_vector))
+accuracy_val = np.empty(len(k_vector))
 
-Ce projet permet de maîtriser le préprocessing avec le nettoyage, la normalisation et le split des données, la visualisation avec l'analyse exploratoire, l'algorithme k-NN dans son principe, son implémentation et son optimisation, la validation croisée pour la sélection d'hyperparamètres, l'évaluation avec les métriques de performance et la détection de surapprentissage, le feature scaling dans son importance et son implémentation, et le pipeline ML complet de la donnée brute au modèle déployable.
+print("\n🔄 Entraînement des modèles...")
+for ind, k in enumerate(k_vector):
+    clf = KNeighborsClassifier(n_neighbors=k)
+    clf.fit(X_train, Y_train)
+    
+    # Prédictions sur l'ensemble d'entraînement
+    Y_train_pred = clf.predict(X_train)
+    accuracy_train[ind] = accuracy_score(Y_train, Y_train_pred)
+    error_train[ind] = 1 - accuracy_train[ind]
+    
+    # Prédictions sur l'ensemble de validation
+    Y_val_pred = clf.predict(X_val)
+    accuracy_val[ind] = accuracy_score(Y_val, Y_val_pred)
+    error_val[ind] = 1 - accuracy_val[ind]
 
-**CONCLUSION**
+# Recherche du k optimal
+err_min = error_val.min()
+ind_opt = error_val.argmin()
+k_star = k_vector[ind_opt]
 
-Ce projet démontre l'efficacité du k-NN pour la classification de la qualité des vins, avec une précision de 79% après optimisation. La normalisation des données s'avère cruciale, améliorant les performances de 11%. Les perspectives incluent l'intégration de données sensorielles de dégustation, le développement d'un système de recommandation, l'application à d'autres types de vins, et la création d'une interface web pour les viticulteurs. Ce travail ouvre la voie vers une viticulture plus data-driven, combinant tradition et innovation technologique.
+print(f"\n✅ k optimal trouvé :")
+print(f"   - k* = {k_star}")
+print(f"   - Erreur validation minimale : {err_min:.4f}")
+print(f"   - Précision validation maximale : {accuracy_val[ind_opt]:.4f}")
+
+# Visualisation des performances
+plt.figure(figsize=(12, 8))
+
+# Courbe des erreurs
+plt.subplot(2, 1, 1)
+plt.plot(k_vector, error_train, 'o-', linewidth=2, markersize=6, label='Erreur Train', color='blue')
+plt.plot(k_vector, error_val, 's-', linewidth=2, markersize=6, label='Erreur Validation', color='red')
+plt.axvline(x=k_star, color='green', linestyle='--', alpha=0.7, label=f'k optimal = {k_star}')
+plt.xlabel('Valeur de k')
+plt.ylabel('Taux d\'erreur')
+plt.title('Évolution des Taux d\'Erreur en Fonction de k (Sans Normalisation)')
+plt.legend()
+plt.grid(True, alpha=0.3)
+
+# Courbe des précisions
+plt.subplot(2, 1, 2)
+plt.plot(k_vector, accuracy_train, 'o-', linewidth=2, markersize=6, label='Précision Train', color='lightblue')
+plt.plot(k_vector, accuracy_val, 's-', linewidth=2, markersize=6, label='Précision Validation', color='salmon')
+plt.axvline(x=k_star, color='green', linestyle='--', alpha=0.7, label=f'k optimal = {k_star}')
+plt.xlabel('Valeur de k')
+plt.ylabel('Précision')
+plt.title('Évolution de la Précision en Fonction de k (Sans Normalisation)')
+plt.legend()
+plt.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+
+# Évaluation sur l'ensemble de test
+final_model = KNeighborsClassifier(n_neighbors=k_star)
+final_model.fit(X_train, Y_train)
+Y_test_pred = final_model.predict(X_test)
+test_error = 1 - accuracy_score(Y_test, Y_test_pred)
+test_accuracy = accuracy_score(Y_test, Y_test_pred)
+
+print(f"\n🎯 Performance finale sur le test set (k={k_star}):")
+print(f"   - Taux d'erreur : {test_error:.4f}")
+print(f"   - Précision : {test_accuracy:.4f}")
+
+# =============================================================================
+# 6. k-NN AVEC NORMALISATION
+# =============================================================================
+
+print("\n" + "=" * 50)
+print("6. k-NN AVEC NORMALISATION")
+print("=" * 50)
+
+print("🔄 Normalisation des données...")
+scaler = StandardScaler(with_mean=True, with_std=True)
+scaler = scaler.fit(X_train)
+
+X_train_norm = scaler.transform(X_train)
+X_val_norm = scaler.transform(X_val)
+X_test_norm = scaler.transform(X_test)
+
+print("✅ Normalisation terminée")
+
+# k-NN avec données normalisées
+error_train_norm = np.empty(len(k_vector))
+error_val_norm = np.empty(len(k_vector))
+accuracy_train_norm = np.empty(len(k_vector))
+accuracy_val_norm = np.empty(len(k_vector))
+
+print("\n🔄 Entraînement des modèles avec données normalisées...")
+for ind, k in enumerate(k_vector):
+    clf_norm = KNeighborsClassifier(n_neighbors=k)
+    clf_norm.fit(X_train_norm, Y_train)
+    
+    Y_train_pred_norm = clf_norm.predict(X_train_norm)
+    accuracy_train_norm[ind] = accuracy_score(Y_train, Y_train_pred_norm)
+    error_train_norm[ind] = 1 - accuracy_train_norm[ind]
+    
+    Y_val_pred_norm = clf_norm.predict(X_val_norm)
+    accuracy_val_norm[ind] = accuracy_score(Y_val, Y_val_pred_norm)
+    error_val_norm[ind] = 1 - accuracy_val_norm[ind]
+
+# Recherche du k optimal avec normalisation
+err_min_norm = error_val_norm.min()
+ind_opt_norm = error_val_norm.argmin()
+k_star_norm = k_vector[ind_opt_norm]
+
+print(f"\n✅ k optimal avec normalisation :")
+print(f"   - k* = {k_star_norm}")
+print(f"   - Erreur validation minimale : {err_min_norm:.4f}")
+print(f"   - Précision validation maximale : {accuracy_val_norm[ind_opt_norm]:.4f}")
+
+# Évaluation sur l'ensemble de test avec normalisation
+final_model_norm = KNeighborsClassifier(n_neighbors=k_star_norm)
+final_model_norm.fit(X_train_norm, Y_train)
+Y_test_pred_norm = final_model_norm.predict(X_test_norm)
+test_error_norm = 1 - accuracy_score(Y_test, Y_test_pred_norm)
+test_accuracy_norm = accuracy_score(Y_test, Y_test_pred_norm)
+
+print(f"\n🎯 Performance finale avec normalisation (k={k_star_norm}):")
+print(f"   - Taux d'erreur : {test_error_norm:.4f}")
+print(f"   - Précision : {test_accuracy_norm:.4f}")
+
+# =============================================================================
+# 7. COMPARAISON AVEC/SANS NORMALISATION
+# =============================================================================
+
+print("\n" + "=" * 60)
+print("7. COMPARAISON AVEC/SANS NORMALISATION")
+print("=" * 60)
+
+print("COMPARAISON DES RÉSULTATS:")
+print("=" * 70)
+print(f"{'Condition':<25} {'k optimal':<12} {'Erreur Test':<12} {'Précision Test':<15}")
+print("=" * 70)
+print(f"{'Sans normalisation':<25} {k_star:<12} {test_error:.4f} {'':<8} {test_accuracy:.4f}")
+print(f"{'Avec normalisation':<25} {k_star_norm:<12} {test_error_norm:.4f} {'':<8} {test_accuracy_norm:.4f}")
+print("=" * 70)
+
+# Calcul de l'amélioration
+improvement = ((test_error - test_error_norm) / test_error) * 100
+print(f"\n📈 Amélioration du taux d'erreur : {improvement:.2f}%")
+
+# Visualisation comparative
+plt.figure(figsize=(15, 12))
+
+# Comparaison des erreurs de validation
+plt.subplot(2, 2, 1)
+plt.plot(k_vector, error_val, 's-', linewidth=2, markersize=4, label='Sans normalisation', color='red')
+plt.plot(k_vector, error_val_norm, 'o-', linewidth=2, markersize=4, label='Avec normalisation', color='green')
+plt.axvline(x=k_star, color='red', linestyle='--', alpha=0.5, label=f'k* sans norm = {k_star}')
+plt.axvline(x=k_star_norm, color='green', linestyle='--', alpha=0.5, label=f'k* avec norm = {k_star_norm}')
+plt.xlabel('Valeur de k')
+plt.ylabel('Taux d\'erreur (Validation)')
+plt.title('Comparaison des Erreurs de Validation')
+plt.legend()
+plt.grid(True, alpha=0.3)
+
+# Comparaison des précisions de validation
+plt.subplot(2, 2, 2)
+plt.plot(k_vector, accuracy_val, 's-', linewidth=2, markersize=4, label='Sans normalisation', color='red')
+plt.plot(k_vector, accuracy_val_norm, 'o-', linewidth=2, markersize=4, label='Avec normalisation', color='green')
+plt.axvline(x=k_star, color='red', linestyle='--', alpha=0.5, label=f'k* sans norm = {k_star}')
+plt.axvline(x=k_star_norm, color='green', linestyle='--', alpha=0.5, label=f'k* avec norm = {k_star_norm}')
+plt.xlabel('Valeur de k')
+plt.ylabel('Précision (Validation)')
+plt.title('Comparaison des Précisions de Validation')
+plt.legend()
+plt.grid(True, alpha=0.3)
+
+# Comparaison des erreurs d'entraînement
+plt.subplot(2, 2, 3)
+plt.plot(k_vector, error_train, 's-', linewidth=2, markersize=4, label='Sans normalisation', color='blue')
+plt.plot(k_vector, error_train_norm, 'o-', linewidth=2, markersize=4, label='Avec normalisation', color='orange')
+plt.xlabel('Valeur de k')
+plt.ylabel('Taux d\'erreur (Train)')
+plt.title('Comparaison des Erreurs d\'Entraînement')
+plt.legend()
+plt.grid(True, alpha=0.3)
+
+# Bar plot de comparaison finale
+plt.subplot(2, 2, 4)
+conditions = ['Sans normalisation', 'Avec normalisation']
+accuracies = [test_accuracy, test_accuracy_norm]
+errors = [test_error, test_error_norm]
+
+x = np.arange(len(conditions))
+width = 0.35
+
+bars1 = plt.bar(x - width/2, accuracies, width, label='Précision', color=['lightcoral', 'lightgreen'], alpha=0.7)
+bars2 = plt.bar(x + width/2, errors, width, label='Erreur', color=['red', 'green'], alpha=0.7)
+
+plt.xlabel('Condition')
+plt.ylabel('Score')
+plt.title('Comparaison Finale des Performances sur le Test Set')
+plt.xticks(x, conditions)
+plt.legend()
+
+# Ajout des valeurs sur les barres
+for bar in bars1:
+    height = bar.get_height()
+    plt.text(bar.get_x() + bar.get_width()/2., height + 0.01,
+             f'{height:.3f}', ha='center', va='bottom', fontweight='bold')
+
+for bar in bars2:
+    height = bar.get_height()
+    plt.text(bar.get_x() + bar.get_width()/2., height + 0.01,
+             f'{height:.3f}', ha='center', va='bottom', fontweight='bold')
+
+plt.grid(True, alpha=0.3, axis='y')
+plt.tight_layout()
+plt.show()
+
+# =============================================================================
+# 8. ANALYSE DÉTAILLÉE DES RÉSULTATS
+# =============================================================================
+
+print("\n" + "=" * 70)
+print("8. ANALYSE DÉTAILLÉE DES RÉSULTATS")
+print("=" * 70)
+
+print(f"\n📋 RAPPORT DE CLASSIFICATION - SANS NORMALISATION (k={k_star}):")
+print("-" * 60)
+print(classification_report(Y_test, Y_test_pred, target_names=['Mauvaise Qualité', 'Bonne Qualité']))
+
+print(f"\n📋 RAPPORT DE CLASSIFICATION - AVEC NORMALISATION (k={k_star_norm}):")
+print("-" * 60)
+print(classification_report(Y_test, Y_test_pred_norm, target_names=['Mauvaise Qualité', 'Bonne Qualité']))
+
+# Matrices de confusion comparées
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
+
+# Matrice de confusion sans normalisation
+cm1 = confusion_matrix(Y_test, Y_test_pred)
+sns.heatmap(cm1, annot=True, fmt='d', cmap='Reds', ax=ax1,
+            xticklabels=['Mauvaise Qualité', 'Bonne Qualité'],
+            yticklabels=['Mauvaise Qualité', 'Bonne Qualité'])
+ax1.set_title(f'Sans Normalisation (k={k_star})\nPrécision: {test_accuracy:.3f}')
+ax1.set_ylabel('Vraie étiquette')
+ax1.set_xlabel('Étiquette prédite')
+
+# Matrice de confusion avec normalisation
+cm2 = confusion_matrix(Y_test, Y_test_pred_norm)
+sns.heatmap(cm2, annot=True, fmt='d', cmap='Greens', ax=ax2,
+            xticklabels=['Mauvaise Qualité', 'Bonne Qualité'],
+            yticklabels=['Mauvaise Qualité', 'Bonne Qualité'])
+ax2.set_title(f'Avec Normalisation (k={k_star_norm})\nPrécision: {test_accuracy_norm:.3f}')
+ax2.set_ylabel('Vraie étiquette')
+ax2.set_xlabel('Étiquette prédite')
+
+plt.tight_layout()
+plt.show()
+
+# =============================================================================
+# 9. CONCLUSION ET SYNTHÈSE
+# =============================================================================
+
+print("\n" + "=" * 70)
+print("9. CONCLUSION ET SYNTHÈSE")
+print("=" * 70)
+
+print(f"\n📊 RÉCAPITULATIF DU PROJET:")
+print(f"   • Dataset : {df.shape[0]} échantillons, {X.shape[1]} features")
+print(f"   • Répartition classes : {binary_counts[0]} mauvais vins ({binary_percentages[0]:.1f}%), "
+      f"{binary_counts[1]} bons vins ({binary_percentages[1]:.1f}%)")
+
+print(f"\n🎯 PERFORMANCE FINALE:")
+print(f"   • Meilleur k sans normalisation : {k_star} → Précision : {test_accuracy:.3f}")
+print(f"   • Meilleur k avec normalisation : {k_star_norm} → Précision : {test_accuracy_norm:.3f}")
+
+if test_accuracy_norm > test_accuracy:
+    improvement_acc = ((test_accuracy_norm - test_accuracy) / test_accuracy) * 100
+    print(f"   ✅ La normalisation a amélioré la précision de {improvement_acc:.1f}%")
+else:
+    print(f"   ❌ La normalisation n'a pas amélioré la performance")
+
+print(f"\n🔍 OBSERVATIONS CLÉS:")
+print("   1. Impact de k : Les petites valeurs de k montrent du surapprentissage")
+print("   2. Normalisation : Essentielle pour k-NN dû aux différentes échelles des features")
+print("   3. Performance : Le modèle atteint une précision satisfaisante")
+
+print(f"\n💡 RECOMMANDATIONS:")
+print("   • Toujours normaliser les données pour les algorithmes basés sur les distances")
+print("   • Utiliser la validation pour sélectionner les hyperparamètres")
+print("   • Considérer d'autres algorithmes (Random Forest, SVM) pour comparaison")
+
+# Affichage des features les plus corrélées avec la qualité
+correlation_with_quality = df.corr()['quality'].drop('quality').abs().sort_values(ascending=False)
+print(f"\n📈 FEATURES LES PLUS CORRÉLÉES AVEC LA QUALITÉ:")
+for i, (feature, corr) in enumerate(correlation_with_quality.head(5).items()):
+    print(f"   {i+1}. {feature:.<20} |r| = {corr:.3f}")
+
+print("\n" + "=" * 70)
+print("PROJET TERMINÉ AVEC SUCCÈS! 🎉")
+print("=" * 70)
