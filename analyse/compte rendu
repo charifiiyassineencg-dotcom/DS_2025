@@ -1,1 +1,113 @@
 
+
+# 📊 Projet de Prédiction – Dataset Diabetes
+
+## Description du projet
+
+Ce projet a pour objectif de **prédire les valeurs de progression du diabète** chez des patients à partir de différentes variables cliniques. Le projet suit l’ensemble du **cycle de vie d’un projet de Data Science**, depuis l’importation des données jusqu’à l’évaluation du modèle de Machine Learning.
+
+---
+
+## 🔧 Technologies et Bibliothèques Utilisées
+
+* Python 3.x
+* Pandas, NumPy pour la manipulation des données
+* Matplotlib, Seaborn pour la visualisation
+* Scikit-Learn pour le Machine Learning et les métriques
+
+---
+
+## 📂 Structure du projet
+
+```text
+├── data/
+│   └── diabetes.csv         # Dataset (optionnel)
+├── notebooks/
+│   └── diabetes_regression.ipynb  # Notebook principal
+├── src/
+│   └── preprocessing.py     # Scripts de nettoyage et préparation
+├── README.md                # Ce fichier
+└── requirements.txt         # Bibliothèques nécessaires
+```
+
+---
+
+## ⚙️ Étapes du projet
+
+### 1. Importation des bibliothèques
+
+Toutes les bibliothèques nécessaires pour le traitement de données, visualisation et Machine Learning ont été importées.
+
+### 2. Chargement des données
+
+Le dataset utilisé est `load_diabetes` de Scikit-Learn. Il contient des informations cliniques sur des patients et une variable cible continue représentant la progression du diabète.
+
+### 3. Simulation de données manquantes
+
+Pour simuler un scénario réaliste, 5% des valeurs des features ont été remplacées par des `NaN`.
+
+### 4. Nettoyage et préparation des données
+
+* Séparation des features (`X`) et de la cible (`y`)
+* Imputation des valeurs manquantes par la **moyenne**
+* Conversion en DataFrame pour conserver les noms des colonnes
+
+### 5. Analyse exploratoire (EDA)
+
+* Statistiques descriptives
+* Distribution d’une feature clé (`bmi`)
+* Matrice de corrélation (top 10 features)
+
+### 6. Séparation Train / Test
+
+* 80% des données pour l’entraînement
+* 20% pour le test
+
+### 7. Modélisation
+
+* Modèle utilisé : **Random Forest Regressor**
+* Entraînement sur les données d’entraînement
+
+### 8. Évaluation du modèle
+
+* Métriques utilisées :
+
+  * **Mean Squared Error (MSE)** : mesure l’erreur moyenne quadratique
+  * **R-squared (R²)** : coefficient de détermination
+* Visualisation des prédictions vs valeurs réelles
+
+---
+
+## 📈 Résultats
+
+* **Mean Squared Error (MSE)** : `afficher la valeur obtenue`
+* **R-squared (R²)** : `afficher la valeur obtenue`
+
+**Graphique : Prédictions vs Réalité**
+
+![Prédictions vs Réalité](https://via.placeholder.com/600x400?text=Graph+Predictions+vs+Reality)
+
+---
+
+## 💡 Conclusion
+
+Le modèle Random Forest Regressor permet de prédire la progression du diabète avec un **niveau de précision raisonnable** sur ce dataset.
+Le projet illustre les bonnes pratiques de Data Science :
+
+* Pré-traitement des données
+* Analyse exploratoire
+* Séparation Train/Test
+* Évaluation du modèle
+
+---
+
+## 📌 Pour aller plus loin
+
+* Tester d’autres modèles de régression (Lasso, Ridge, Gradient Boosting)
+* Optimiser les hyperparamètres avec `GridSearchCV`
+* Ajouter des techniques avancées de feature engineering
+* Déployer le modèle avec **Streamlit** ou **Flask**
+
+
+
+
